@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 시크릿 (절대 커밋 금지)
+.env
+.env.local
+*.pem
+*.key
+
+# IDE
+.vscode/
+.idea/
+
+# Docker
+docker-compose.override.yml  # 로컬 개발용은 개인 설정
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
