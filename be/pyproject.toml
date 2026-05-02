@@ -1,7 +1,7 @@
 [project]
-name = "knu-chatbot-ai"
+name = "knu-chatbot-be"
 version = "0.1.0"
-description = "KNU Chatbot AI Server"
+description = "KNU Chatbot Backend Server"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115.0",
@@ -19,4 +19,4 @@ dev = [
 ]
 
 [tool.uv]
-package = false
+package = false  # 패키지로 빌드 안 함, 앱 실행만

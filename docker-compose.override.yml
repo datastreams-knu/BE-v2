@@ -1,0 +1,28 @@
+# docker-compose.override.yml
+# 로컬 개발 전용 — docker compose up 시 자동 병합
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"  # 로컬에서 DBeaver 등으로 접속
+
+  redis:
+    ports:
+      - "6379:6379"  # 로컬에서 redis-cli 접속
+
+  be:
+    volumes:
+      - ./be/app:/app/app  # 코드 hot reload
+      - ./be/migrations:/app/migrations
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      LOG_LEVEL: DEBUG
+
+  ai:
+    volumes:
+      - ./ai/app:/app/app  # 코드 hot reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+    ports:
+      - "8001:8001"  # 로컬에서 AI 직접 디버깅
+    environment:
+      LOG_LEVEL: DEBUG

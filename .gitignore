@@ -18,7 +18,7 @@ htmlcov/
 .idea/
 
 # Docker
-docker-compose.override.yml  # 로컬 개발용은 개인 설정
+docker-compose.override.yml  # 로컬 개발용
 
 # OS
 .DS_Store
