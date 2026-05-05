@@ -1,7 +1,6 @@
-# be/migrations/env.py
 """Alembic 마이그레이션 환경 설정.
 
-ADR-003·004: 비동기 SQLAlchemy + 타입스탬프 명명.
+ADR-003·004: 비동기 SQLAlchemy + 타임스탬프 명명.
 """
 
 import asyncio
@@ -19,8 +18,7 @@ from app.db.models import *  # noqa: F401, F403
 # Alembic Config 객체
 config = context.config
 
-# alembic.ini의 sqlalchemy.url은 비어있고, settings에서 주입
-# 단, alembic은 동기 드라이버 URL을 기대 → asyncpg를 그대로 쓰면 OK (async 모드)
+# settings에서 DATABASE_URL을 동적으로 주입
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 # Python 로깅 설정
@@ -49,9 +47,8 @@ def do_run_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
-        # 스키마 변경 감지 옵션
-        compare_type=True,        # 컬럼 타입 변경 감지
-        compare_server_default=True,  # 기본값 변경 감지
+        compare_type=True,
+        compare_server_default=True,
     )
 
     with context.begin_transaction():
