@@ -29,6 +29,7 @@ class ConflictError(DomainError):
 class ValidationError(DomainError):
     """비즈니스 검증 실패."""
 
+
 # ---- 인증 관련 ----
 class AuthError(DomainError):
     """모든 인증 예외의 부모."""
@@ -40,6 +41,7 @@ class InvalidStateError(AuthError):
 
 class TokenReuseDetectedError(AuthError):
     """이미 revoke된 refresh token 사용 시도 (탈취 의심)."""
+
 
 # === User 도메인 ===
 
@@ -67,6 +69,22 @@ class InvalidNicknameError(ValidationError):
         self.nickname = nickname
         self.reason = reason
         super().__init__(f"Invalid nickname '{nickname}': {reason}")
+
+
+# === Chat 도메인 ===
+
+class ChatNotFoundError(NotFoundError):
+    def __init__(self, chat_id: UUID | None = None):
+        self.chat_id = chat_id
+        msg = f"Chat not found: id={chat_id}" if chat_id else "Chat not found"
+        super().__init__(msg)
+
+
+class InvalidChatNameError(ValidationError):
+    def __init__(self, name: str, reason: str):
+        self.name = name
+        self.reason = reason
+        super().__init__(f"Invalid chat name '{name}': {reason}")
 
 
 def register_exception_handlers(app: FastAPI) -> None:
