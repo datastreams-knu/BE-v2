@@ -1,4 +1,5 @@
 # app/v1/users.py
 
-from fastapi import FastAPI
+from fastapi import Depends
+from typing import Annotated
 

@@ -57,11 +57,8 @@ async def dispose_db() -> None:
 
 
 async def get_db() -> AsyncIterator[AsyncSession]:
-    """FastAPI 의존성 주입용.
-
-    사용 예:
-        async def route(db: Annotated[AsyncSession, Depends(get_db)]):
-            ...
+    """
+    FastAPI 의존성 주입용.
 
     한 요청 동안 하나의 세션을 보장.
     예외 발생 시 자동 rollback, 정상 종료 시 자동 close.
