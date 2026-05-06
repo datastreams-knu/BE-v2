@@ -8,9 +8,13 @@ from fastapi import FastAPI
 
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
+from app.core.exceptions import UserNotFoundError
+from app.core.exceptions import register_exception_handlers
+
 from app.db.session import create_engine, dispose_db, init_db
 from app.middleware.correlation import CorrelationIDMiddleware
 
+from app.api.v1 import api_router
 configure_logging()
 logger = get_logger(__name__)
 
@@ -52,13 +56,16 @@ app = FastAPI(
 
 app.add_middleware(CorrelationIDMiddleware)
 
+# 글로벌 예외 핸들러 등록
+register_exception_handlers(app)
+
+# api 라우터 등록
+app.include_router(api_router)
+
 
 @app.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
-
-
-# be/app/main.py 의 ready 함수 교체
 
 from typing import Annotated
 from fastapi import Depends, status
@@ -93,3 +100,11 @@ async def ready(
             {"status": "not_ready", **checks},
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
+
+# 글로벌 예외 핸들러
+@app.exception_handler(UserNotFoundError)
+async def user_not_found_handler(request, exc):
+    return JSONResponse(
+        status_code=404,
+        content={"detail": str(exc)},
+    )

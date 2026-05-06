@@ -23,7 +23,7 @@ class NotFoundError(DomainError):
 
 
 class ConflictError(DomainError):
-    """리소스 충돌 (이미 존재하는 등)."""
+    """리소스 충돌"""
 
 
 class ValidationError(DomainError):

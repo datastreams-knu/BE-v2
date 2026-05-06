@@ -6,6 +6,7 @@ FastAPI Depends로 자동 주입할 수 있게 만드는 provider 함수들.
 """
 
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,3 +49,15 @@ def get_user_service(
 
 
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
+
+async def get_current_user_id() -> UUID:
+    """
+    현재 인증된 사용자의 ID.
+
+    JWT 토큰 디코딩으로 교체 예정.
+    """
+    # TODO 실제 JWT 검증
+    return UUID("00000000-0000-0000-0000-000000000001")
+
+
+CurrentUserIdDep = Annotated[UUID, Depends(get_current_user_id)]
