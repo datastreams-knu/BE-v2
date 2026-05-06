@@ -54,18 +54,6 @@ def get_user_service(
 
 UserServiceDep = Annotated[UserService, Depends(get_user_service)]
 
-async def get_current_user_id() -> UUID:
-    """
-    현재 인증된 사용자의 ID.
-
-    JWT 토큰 디코딩으로 교체 예정.
-    """
-    # TODO 실제 JWT 검증
-    return UUID("00000000-0000-0000-0000-000000000001")
-
-
-CurrentUserIdDep = Annotated[UUID, Depends(get_current_user_id)]
-
 
 def get_http_client(request: Request) -> httpx.AsyncClient:
     """lifespan에서 만든 공유 httpx 클라이언트."""
@@ -79,3 +67,97 @@ def get_google_provider(
 
 
 GoogleProviderDep = Annotated[GoogleOAuthProvider, Depends(get_google_provider)]
+
+
+from app.core.security import decode_access_token
+from app.repositories.refresh_token import RefreshTokenRepository
+from app.services.auth.providers import OAuthProvider
+from app.services.auth.service import AuthService
+from app.services.auth.state_store import OAuthStateStore
+
+
+# === RefreshTokenRepository ===
+
+def get_refresh_token_repo(session: DbSession) -> RefreshTokenRepository:
+    return RefreshTokenRepository(session)
+
+
+RefreshTokenRepoDep = Annotated[
+    RefreshTokenRepository, Depends(get_refresh_token_repo)
+]
+
+
+# === OAuth State Store (싱글턴) ===
+
+_state_store_singleton = OAuthStateStore()
+
+
+def get_state_store() -> OAuthStateStore:
+    """OAuth state store는 앱 전체가 공유하는 싱글턴.
+
+    in-memory dict 기반이라 같은 인스턴스를 모든 요청이 공유해야 함.
+    """
+    return _state_store_singleton
+
+
+StateStoreDep = Annotated[OAuthStateStore, Depends(get_state_store)]
+
+
+# === AuthService ===
+
+def get_auth_service(
+    session: DbSession,
+    oauth_provider: GoogleProviderDep,
+    state_store: StateStoreDep,
+    user_service: UserServiceDep,
+    token_repo: RefreshTokenRepoDep,
+) -> AuthService:
+    return AuthService(
+        session=session,
+        oauth_provider=oauth_provider,
+        state_store=state_store,
+        user_service=user_service,
+        token_repo=token_repo,
+    )
+
+
+AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+
+
+# === 진짜 인증 — 임시 함수 교체 ===
+
+from fastapi import Header, HTTPException
+
+
+async def get_current_user_id(
+    authorization: Annotated[str | None, Header()] = None,
+) -> UUID:
+    """Authorization 헤더에서 JWT를 추출해 user_id 반환.
+
+    Phase 4까지의 임시 구현을 대체.
+    `Authorization: Bearer <jwt>` 형식 기대.
+    """
+    if authorization is None:
+        raise HTTPException(
+            status_code=401,
+            detail="missing Authorization header",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # Bearer 스키마 파싱
+    parts = authorization.split()
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(
+            status_code=401,
+            detail="invalid Authorization format (expected 'Bearer <token>')",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = parts[1]
+
+    # JWT 검증 (예외는 글로벌 핸들러가 401로 변환)
+    payload = decode_access_token(token)
+    return UUID(payload.sub)
+
+
+CurrentUserIdDep = Annotated[UUID, Depends(get_current_user_id)]
