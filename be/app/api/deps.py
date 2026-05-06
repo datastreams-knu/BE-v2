@@ -15,6 +15,10 @@ from app.db.session import get_db
 from app.repositories.user import UserRepository
 from app.services.user import UserService
 
+import httpx
+from fastapi import Request
+
+from app.services.auth.providers import GoogleOAuthProvider
 
 # === Type aliases ===
 # 라우트 함수에서 반복되는 의존성을 짧게 표현하기 위한 별칭
@@ -61,3 +65,17 @@ async def get_current_user_id() -> UUID:
 
 
 CurrentUserIdDep = Annotated[UUID, Depends(get_current_user_id)]
+
+
+def get_http_client(request: Request) -> httpx.AsyncClient:
+    """lifespan에서 만든 공유 httpx 클라이언트."""
+    return request.app.state.http_client
+
+
+def get_google_provider(
+    http_client: Annotated[httpx.AsyncClient, Depends(get_http_client)],
+) -> GoogleOAuthProvider:
+    return GoogleOAuthProvider(http_client)
+
+
+GoogleProviderDep = Annotated[GoogleOAuthProvider, Depends(get_google_provider)]

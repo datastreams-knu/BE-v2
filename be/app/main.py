@@ -15,32 +15,38 @@ from app.db.session import create_engine, dispose_db, init_db
 from app.middleware.correlation import CorrelationIDMiddleware
 
 from app.api.v1 import api_router
+
+import httpx
+
 configure_logging()
 logger = get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """앱 라이프사이클.
-
-    기동: DB 엔진 생성 → sessionmaker 초기화
-    종료: DB 연결 풀 정리
-    """
     logger.info(
         "app_starting",
         environment=settings.ENVIRONMENT.value,
         log_level=settings.LOG_LEVEL,
     )
 
-    # === 기동 ===
+    # DB 초기화
     engine = create_engine()
     init_db(engine)
     logger.info("db_initialized")
 
+    # HTTP 클라이언트 (외부 API 호출용)
+    http_client = httpx.AsyncClient(timeout=10.0)
+    app.state.http_client = http_client
+    logger.info("http_client_initialized")
+
     try:
         yield
     finally:
-        # === 종료 ===
+        # 역순 정리
+        await http_client.aclose()
+        logger.info("http_client_disposed")
+
         await dispose_db()
         logger.info("db_disposed")
         logger.info("app_shutting_down")
