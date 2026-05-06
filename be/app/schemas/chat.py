@@ -14,11 +14,17 @@ class ChatResponse(BaseModel):
     # - model_config로 from_attributes=True
     # - 노출 필드: id, name, created_at
     # - user_id는 노출 안 함 (어차피 자기 자신 것만 보므로)
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    created_at: datetime
     ...
 
 
 class ChatPageResponse(BaseModel):
-    """Chat 목록 + cursor pagination 정보.
+    """
+    Chat 목록 + cursor pagination 정보.
 
     Service의 ChatPage를 HTTP 응답 형식으로 변환.
     """
@@ -27,7 +33,9 @@ class ChatPageResponse(BaseModel):
     # - items: list[ChatResponse]
     # - next_cursor: str | None
     # - has_more: bool
-    ...
+    items: list[ChatResponse]
+    next_cursor: str | None
+    has_more: bool
 
 
 class ChatCreate(BaseModel):
@@ -36,7 +44,11 @@ class ChatCreate(BaseModel):
     # 힌트:
     # - name 필수 (Optional 아님)
     # - Field로 길이 제한 (1~100, Service의 _validate_name과 일치)
-    ...
+    name: str = Field(
+        min_length=1,
+        max_length=100,
+        description="채팅방 이름"
+    )
 
 
 class ChatUpdate(BaseModel):
@@ -46,3 +58,9 @@ class ChatUpdate(BaseModel):
     # - name optional (UserUpdate처럼)
     # - 길이 제한 동일
     ...
+    name: str | None = Field(
+        default=None,
+        min_length=1,
+        max_length=100,
+        description="새 채팅방 이름"
+    )
