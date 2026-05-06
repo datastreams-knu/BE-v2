@@ -7,6 +7,9 @@ HTTP 응답 변환은 API 계층에서 처리 (ADR-014).
 
 from uuid import UUID
 
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+
 
 class DomainError(Exception):
     """모든 도메인 예외의 부모.
@@ -53,3 +56,32 @@ class InvalidNicknameError(ValidationError):
         self.nickname = nickname
         self.reason = reason
         super().__init__(f"Invalid nickname '{nickname}': {reason}")
+
+
+def register_exception_handlers(app: FastAPI) -> None:
+    """글로벌 예외 핸들러 등록.
+
+    main.py의 lifespan 또는 앱 초기화 시 호출.
+    Phase 4 이후 RFC 9457 Problem Details로 확장 예정.
+    """
+
+    @app.exception_handler(NotFoundError)
+    async def not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
+        return JSONResponse(
+            status_code=404,
+            content={"detail": str(exc)},
+        )
+
+    @app.exception_handler(ConflictError)
+    async def conflict_handler(request: Request, exc: ConflictError) -> JSONResponse:
+        return JSONResponse(
+            status_code=409,
+            content={"detail": str(exc)},
+        )
+
+    @app.exception_handler(ValidationError)
+    async def validation_handler(request: Request, exc: ValidationError) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content={"detail": str(exc)},
+        )
