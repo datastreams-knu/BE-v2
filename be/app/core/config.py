@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     # ===========================================
     REDIS_CACHE_URL: str
     REDIS_PUBSUB_URL: str
+    REDIS_URL: str = "redis://redis:6379/0"
 
     # ===========================================
     # JWT (ADR-005)

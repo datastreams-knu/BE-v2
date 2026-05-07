@@ -12,6 +12,7 @@ from app.core.exceptions import UserNotFoundError
 from app.core.exceptions import register_exception_handlers
 
 from app.db.session import create_engine, dispose_db, init_db
+from app.db.redis_client import create_redis
 from app.middleware.correlation import CorrelationIDMiddleware
 
 from app.api.v1 import api_router
@@ -35,15 +36,25 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     init_db(engine)
     logger.info("db_initialized")
 
-    # HTTP 클라이언트 (외부 API 호출용)
+    # HTTP 클라이언트
     http_client = httpx.AsyncClient(timeout=10.0)
     app.state.http_client = http_client
     logger.info("http_client_initialized")
+
+    # Redis
+    redis = create_redis()
+    await redis.ping()
+    app.state.redis = redis
+    logger.info("redis_initialized")
+
 
     try:
         yield
     finally:
         # 역순 정리
+        await redis.aclose()
+        logger.info("redis_disposed")
+
         await http_client.aclose()
         logger.info("http_client_disposed")
 

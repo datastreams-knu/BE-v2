@@ -29,6 +29,15 @@ from app.services.auth.providers import GoogleOAuthProvider
 
 from app.services.ai_client import AIClient
 
+from app.core.security import decode_access_token
+from app.repositories.refresh_token import RefreshTokenRepository
+from app.services.auth.providers import OAuthProvider
+from app.services.auth.service import AuthService
+from app.services.auth.state_store import OAuthStateStore
+
+from redis.asyncio import Redis
+
+
 # === Type aliases ===
 # 라우트 함수에서 반복되는 의존성을 짧게 표현하기 위한 별칭
 
@@ -76,13 +85,6 @@ def get_google_provider(
 
 
 GoogleProviderDep = Annotated[GoogleOAuthProvider, Depends(get_google_provider)]
-
-
-from app.core.security import decode_access_token
-from app.repositories.refresh_token import RefreshTokenRepository
-from app.services.auth.providers import OAuthProvider
-from app.services.auth.service import AuthService
-from app.services.auth.state_store import OAuthStateStore
 
 
 # === RefreshTokenRepository ===
@@ -215,5 +217,12 @@ def get_message_service(
 
 
 MessageServiceDep = Annotated[MessageService, Depends(get_message_service)]
+
+
+def get_redis(request: Request) -> Redis:
+    return request.app.state.redis
+
+
+RedisDep = Annotated[Redis, Depends(get_redis)]
 
 
