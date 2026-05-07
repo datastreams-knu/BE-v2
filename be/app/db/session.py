@@ -73,4 +73,11 @@ async def get_db() -> AsyncIterator[AsyncSession]:
         except Exception:
             await session.rollback()
             raise
-        # 정상 종료 시 async with가 자동 close
+
+def get_sessionmaker() -> async_sessionmaker[AsyncSession]:
+    """
+    스트리밍 세션 외부 노출용.
+    """
+    if _sessionmaker is None:
+        raise RuntimeError("DB not initialized")
+    return _sessionmaker

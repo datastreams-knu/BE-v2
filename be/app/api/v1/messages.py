@@ -1,18 +1,23 @@
 # be/app/api/v1/messages.py
 """Message API — Chat에 종속된 Nested Resource."""
+import json
 
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 
-from app.api.deps import CurrentUserIdDep, MessageServiceDep
+from app.api.deps import CurrentUserIdDep, MessageServiceDep, RedisDep
 from app.schemas.message import (
     DISCLAIMER,
     MessageCreate,
     MessagePageResponse,
     MessageResponse,
 )
+
+from app.services.pubsub import MessageStreamSubscriber
+
 
 # prefix가 chats/{chat_id}/messages로 nested
 router = APIRouter(prefix="/chats/{chat_id}/messages", tags=["messages"])
@@ -92,4 +97,34 @@ async def delete_message(
         user_id=user_id,
         chat_id=chat_id,
         message_id=message_id,
+    )
+
+
+@router.get("/{message_id}/stream")
+async def stream_message(
+    chat_id: UUID,
+    message_id: UUID,
+    user_id: CurrentUserIdDep,
+    service: MessageServiceDep,
+    redis: RedisDep,
+) -> StreamingResponse:
+    """SSE 스트림. message에 대한 chunk들을 실시간 전송."""
+    # 1. 권한 검증
+    await service.get_message(user_id, chat_id, message_id)
+
+    # 2. Subscriber 생성
+    subscriber = MessageStreamSubscriber(redis)
+
+    async def event_generator():
+        async for event in subscriber.subscribe(message_id):
+            yield f"data: {json.dump(event, ensure_ascii=False)}\n\n"
+        
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
     )

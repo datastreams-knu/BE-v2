@@ -3,12 +3,14 @@
 
 import base64
 import json
+import asyncio
+
 from datetime import datetime
 from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 
 from app.core.exceptions import (
     InvalidQuestionError,
@@ -19,6 +21,8 @@ from app.db.models.message import Message
 from app.repositories.message import MessageRepository
 from app.services.chat import ChatService
 from app.services.ai_client import AIClient
+from app.services.streaming import process_message_streaming
+from app.services.pubsub import MessageStreamPublisher
 
 logger = get_logger(__name__)
 
@@ -40,12 +44,15 @@ class MessageService:
         message_repo: MessageRepository,
         chat_service: ChatService,
         ai_client: AIClient,
+        publisher: MessageStreamPublisher,           
+        sessionmaker: async_sessionmaker[AsyncSession]
     ):
         self.session = session
         self.message_repo = message_repo
         self.chat_service = chat_service
         self.ai_client = ai_client
-
+        self.publisher = publisher
+        self.sessionmaker = sessionmaker
     # === 조회 ===
 
     async def get_message(
@@ -109,38 +116,71 @@ class MessageService:
         chat_id: UUID,
         question: str,
     ) -> Message:
-        """Message 생성.
+        """Message 생성 (스트리밍).
 
-        흐름:
-        1. Chat 소유권 검증
-        2. 질문 검증
-        3. AI 서버 호출 (Stage 2에서 구현, 지금은 placeholder)
-        4. DB 저장 + commit
-        5. 도메인 이벤트 로깅
+        응답은 즉시 반환 (placeholder answer).
+        실제 AI 호출과 답변 저장은 백그라운드에서 진행.
+        클라이언트는 응답의 message_id로 SSE 구독해서 실시간 답변 수신.
         """
+        # 동기 처리
+        # await self.chat_service.get_chat(user_id, chat_id)
+        # self._validate_question(question)
+  
+        #answer_data = await self.ai_client.ask(question.strip())
+        
+        # message = Message(
+        #     chat_id=chat_id,
+        #     question=question.strip(),
+        #     answer=answer_data,
+        # )
+        # message = await self.message_repo.add(message)
+        # await self.session.commit()
+
+        # logger.info(
+        #     "message_created",
+        #     chat_id=str(chat_id),
+        #     message_id=str(message.id),
+        #     question_length=len(question),
+        # )
+
+        # return message
         await self.chat_service.get_chat(user_id, chat_id)
         self._validate_question(question)
 
-        answer_data = await self.ai_client.ask(question.strip())
-        # =====================
+        answer_placeholder: dict[str, Any] = {
+            "answer": "",
+            "references": [],
+            "images": [],
+            "status": "pending",
+        }
 
         message = Message(
             chat_id=chat_id,
             question=question.strip(),
-            answer=answer_data,
+            answer=answer_placeholder,
         )
         message = await self.message_repo.add(message)
         await self.session.commit()
 
+        asyncio.create_task(
+            process_message_streaming(
+                message_id=message.id,
+                question=question.strip(),
+                sessionmaker=self.sessionmaker,
+                ai_client=self.ai_client,
+                publisher=self.publisher,
+            )
+        )
+        
         logger.info(
-            "message_created",
+            "message_created_streaming",
             chat_id=str(chat_id),
             message_id=str(message.id),
-            question_length=len(question),
         )
 
         return message
 
+        
     # === 삭제 ===
 
     async def delete_message(

@@ -37,6 +37,8 @@ from app.services.auth.state_store import OAuthStateStore
 
 from redis.asyncio import Redis
 
+from app.services.pubsub import MessageStreamPublisher
+from app.db.session import get_sessionmaker
 
 # === Type aliases ===
 # 라우트 함수에서 반복되는 의존성을 짧게 표현하기 위한 별칭
@@ -202,22 +204,6 @@ def get_ai_client(
 AIClientDep = Annotated[AIClient, Depends(get_ai_client)]
 
 
-def get_message_service(
-    session: DbSession,
-    message_repo: MessageRepoDep,
-    chat_service: ChatServiceDep,
-    ai_client: AIClientDep,
-) -> MessageService:
-    return MessageService(
-        session=session,
-        message_repo=message_repo,
-        chat_service=chat_service,
-        ai_client=ai_client,
-    )
-
-
-MessageServiceDep = Annotated[MessageService, Depends(get_message_service)]
-
 
 def get_redis(request: Request) -> Redis:
     return request.app.state.redis
@@ -225,4 +211,29 @@ def get_redis(request: Request) -> Redis:
 
 RedisDep = Annotated[Redis, Depends(get_redis)]
 
+
+def get_publisher(redis: RedisDep) -> MessageStreamPublisher:
+    return MessageStreamPublisher(redis)
+
+
+PublisherDep = Annotated[MessageStreamPublisher, Depends(get_publisher)]
+
+def get_message_service(
+    session: DbSession,
+    message_repo: MessageRepoDep,
+    chat_service: ChatServiceDep,
+    ai_client: AIClientDep,
+    publisher: PublisherDep,
+) -> MessageService:
+    return MessageService(
+        session=session,
+        message_repo=message_repo,
+        chat_service=chat_service,
+        ai_client=ai_client,
+        publisher=publisher,                                
+        sessionmaker=get_sessionmaker(),
+    )
+
+
+MessageServiceDep = Annotated[MessageService, Depends(get_message_service)]
 
