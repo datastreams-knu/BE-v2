@@ -19,7 +19,7 @@ class ChatResponse(BaseModel):
     id: UUID
     name: str
     created_at: datetime
-    ...
+    
 
 
 class ChatPageResponse(BaseModel):
@@ -57,7 +57,6 @@ class ChatUpdate(BaseModel):
     # 힌트:
     # - name optional (UserUpdate처럼)
     # - 길이 제한 동일
-    ...
     name: str | None = Field(
         default=None,
         min_length=1,

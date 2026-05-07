@@ -87,7 +87,7 @@ RefreshTokenRepoDep = Annotated[
 ]
 
 
-# === OAuth State Store (싱글턴) ===
+# === OAuth State Store ===
 
 _state_store_singleton = OAuthStateStore()
 
@@ -124,8 +124,6 @@ def get_auth_service(
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 
 
-# === 진짜 인증 — 임시 함수 교체 ===
-
 from fastapi import Header, HTTPException
 
 
@@ -161,3 +159,24 @@ async def get_current_user_id(
 
 
 CurrentUserIdDep = Annotated[UUID, Depends(get_current_user_id)]
+
+
+from app.repositories.chat import ChatRepository
+from app.services.chat import ChatService
+
+
+def get_chat_repo(session: DbSession) -> ChatRepository:
+    return ChatRepository(session)
+
+
+ChatRepoDep = Annotated[ChatRepository, Depends(get_chat_repo)]
+
+
+def get_chat_service(
+    session: DbSession,
+    chat_repo: ChatRepoDep,
+) -> ChatService:
+    return ChatService(session=session, chat_repo=chat_repo)
+
+
+ChatServiceDep = Annotated[ChatService, Depends(get_chat_service)]
