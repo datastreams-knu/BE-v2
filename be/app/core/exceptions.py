@@ -86,6 +86,25 @@ class InvalidChatNameError(ValidationError):
         self.reason = reason
         super().__init__(f"Invalid chat name '{name}': {reason}")
 
+# === Message 도메인 ===
+
+class MessageNotFoundError(NotFoundError):
+    def __init__(self, message_id: UUID | None = None):
+        self.message_id = message_id
+        msg = f"Message not found: id={message_id}" if message_id else "Message not found"
+        super().__init__(msg)
+
+
+class InvalidQuestionError(ValidationError):
+    def __init__(self, reason: str):
+        self.reason = reason
+        super().__init__(f"Invalid question: {reason}")
+
+
+class AIServiceError(DomainError):
+    """AI 서버 통신 실패 (Stage 2에서 사용)."""
+    def __init__(self, reason: str):
+        super().__init__(f"AI service error: {reason}")
 
 def register_exception_handlers(app: FastAPI) -> None:
     """글로벌 예외 핸들러 등록.
@@ -142,4 +161,11 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=401,
             content={"detail": str(exc), "code": "AUTH_ERROR"},
+        )
+    
+    @app.exception_handler(AIServiceError)
+    async def ai_service_handler(request: Request, exc: AIServiceError) -> JSONResponse:
+        return JSONResponse(
+            status_code=503,  # Service Unavailable (외부 의존성 실패)
+            content={"detail": str(exc), "code": "AI_SERVICE_ERROR"},
         )
