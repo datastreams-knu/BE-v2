@@ -9,16 +9,25 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends
+from fastapi import Header, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_db
 from app.repositories.user import UserRepository
 from app.services.user import UserService
 
+from app.repositories.chat import ChatRepository
+from app.services.chat import ChatService
+
+from app.repositories.message import MessageRepository
+from app.services.message import MessageService
+
 import httpx
 from fastapi import Request
 
 from app.services.auth.providers import GoogleOAuthProvider
+
+from app.services.ai_client import AIClient
 
 # === Type aliases ===
 # 라우트 함수에서 반복되는 의존성을 짧게 표현하기 위한 별칭
@@ -124,9 +133,6 @@ def get_auth_service(
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
 
 
-from fastapi import Header, HTTPException
-
-
 async def get_current_user_id(
     authorization: Annotated[str | None, Header()] = None,
 ) -> UUID:
@@ -161,10 +167,6 @@ async def get_current_user_id(
 CurrentUserIdDep = Annotated[UUID, Depends(get_current_user_id)]
 
 
-from app.repositories.chat import ChatRepository
-from app.services.chat import ChatService
-
-
 def get_chat_repo(session: DbSession) -> ChatRepository:
     return ChatRepository(session)
 
@@ -182,10 +184,6 @@ def get_chat_service(
 ChatServiceDep = Annotated[ChatService, Depends(get_chat_service)]
 
 
-from app.repositories.message import MessageRepository
-from app.services.message import MessageService
-
-
 def get_message_repo(session: DbSession) -> MessageRepository:
     return MessageRepository(session)
 
@@ -193,16 +191,29 @@ def get_message_repo(session: DbSession) -> MessageRepository:
 MessageRepoDep = Annotated[MessageRepository, Depends(get_message_repo)]
 
 
+def get_ai_client(
+    http_client: Annotated[httpx.AsyncClient, Depends(get_http_client)],
+) -> AIClient:
+    return AIClient(http_client)
+
+
+AIClientDep = Annotated[AIClient, Depends(get_ai_client)]
+
+
 def get_message_service(
     session: DbSession,
     message_repo: MessageRepoDep,
     chat_service: ChatServiceDep,
+    ai_client: AIClientDep,
 ) -> MessageService:
     return MessageService(
         session=session,
         message_repo=message_repo,
         chat_service=chat_service,
+        ai_client=ai_client,
     )
 
 
 MessageServiceDep = Annotated[MessageService, Depends(get_message_service)]
+
+

@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.api.deps import CurrentUserId, MessageServiceDep
+from app.api.deps import CurrentUserIdDep, MessageServiceDep
 from app.schemas.message import (
     DISCLAIMER,
     MessageCreate,
@@ -30,7 +30,7 @@ def _attach_disclaimer(message_response: MessageResponse) -> MessageResponse:
 async def create_message(
     chat_id: UUID,
     payload: MessageCreate,
-    user_id: CurrentUserId,
+    user_id: CurrentUserIdDep,
     service: MessageServiceDep,
 ) -> MessageResponse:
     message = await service.create_message(
@@ -44,7 +44,7 @@ async def create_message(
 @router.get("", response_model=MessagePageResponse)
 async def list_messages(
     chat_id: UUID,
-    user_id: CurrentUserId,
+    user_id: CurrentUserIdDep,
     service: MessageServiceDep,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     cursor: Annotated[str | None, Query()] = None,
@@ -70,7 +70,7 @@ async def list_messages(
 async def get_message(
     chat_id: UUID,
     message_id: UUID,
-    user_id: CurrentUserId,
+    user_id: CurrentUserIdDep,
     service: MessageServiceDep,
 ) -> MessageResponse:
     message = await service.get_message(
@@ -85,7 +85,7 @@ async def get_message(
 async def delete_message(
     chat_id: UUID,
     message_id: UUID,
-    user_id: CurrentUserId,
+    user_id: CurrentUserIdDep,
     service: MessageServiceDep,
 ) -> None:
     await service.delete_message(

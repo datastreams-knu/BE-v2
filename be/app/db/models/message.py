@@ -27,7 +27,7 @@ class Message(Base):
         ForeignKey("chats.id", ondelete="CASCADE"),
         nullable=False,
     )
-    question_text: Mapped[str] = mapped_column(
+    question: Mapped[str] = mapped_column(
         Text, 
         nullable=False
     )

@@ -18,6 +18,7 @@ from app.core.logging import get_logger
 from app.db.models.message import Message
 from app.repositories.message import MessageRepository
 from app.services.chat import ChatService
+from app.services.ai_client import AIClient
 
 logger = get_logger(__name__)
 
@@ -38,10 +39,12 @@ class MessageService:
         session: AsyncSession,
         message_repo: MessageRepository,
         chat_service: ChatService,
+        ai_client: AIClient,
     ):
         self.session = session
         self.message_repo = message_repo
         self.chat_service = chat_service
+        self.ai_client = ai_client
 
     # === 조회 ===
 
@@ -118,13 +121,7 @@ class MessageService:
         await self.chat_service.get_chat(user_id, chat_id)
         self._validate_question(question)
 
-        # === Stage 2에서 교체 ===
-        # 지금은 AI 호출 없이 placeholder 응답
-        answer_data: dict[str, Any] = {
-            "answer": "[Stage 2에서 AI 호출 예정]",
-            "references": [],
-            "images": [],
-        }
+        answer_data = await self.ai_client.ask(question.strip())
         # =====================
 
         message = Message(

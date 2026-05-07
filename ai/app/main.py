@@ -1,57 +1,39 @@
-# ai/app/main.py
-"""AI 서버 진입점."""
-
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+# app/main.py
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from app.core.config import settings
-from app.core.logging import configure_logging, get_logger
-from app.middleware.correlation import CorrelationIDMiddleware
+app = FastAPI()
 
-configure_logging()
-logger = get_logger(__name__)
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """AI 서버 라이프사이클.
-
-    Phase 6 이후 이 함수에서:
-    - Redis Pub/Sub 클라이언트 생성
-    - Pinecone 클라이언트 초기화
-    - 임베딩 모델 로드
-    - 메타데이터 캐시 초기 적재
-    등을 처리할 예정.
-    """
-    logger.info(
-        "ai_server_starting",
-        environment=settings.ENVIRONMENT.value,
-    )
-
-    yield
-
-    logger.info("ai_server_shutting_down")
-
-
-app = FastAPI(
-    title="KNU Chatbot AI Server",
-    version="0.1.0",
-    lifespan=lifespan,
-    docs_url="/docs" if not settings.is_production else None,
-    redoc_url="/redoc" if not settings.is_production else None,
+# CORS 설정
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-app.add_middleware(CorrelationIDMiddleware)
-
-
+# Health Check
 @app.get("/health")
-async def health() -> dict[str, str]:
-    return {"status": "ok"}
+async def health():
+    return {
+        "status": "ok"
+    }
 
-
-@app.get("/health/ready")
-async def ready() -> dict[str, str]:
-    """Phase 6에서 Pinecone·Redis 점검 추가 예정."""
-    return {"status": "ready"}
+# Mock AI Response
+@app.post("/ai/ai-response")
+async def ai_response():
+    return {
+        "answer": "mock answer",
+        "references": [
+            {
+                "title": "mock reference",
+                "url": "https://example.com"
+            }
+        ],
+        "disclaimer": "항상 정확한 답변을 제공하지 못할 수 있습니다. 아래의 URL들을 참고하여 정확하고 자세한 정보를 확인하세요.",
+        "images": [
+            "https://example.com/mock-image.jpg"
+        ]
+    }

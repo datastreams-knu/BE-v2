@@ -64,7 +64,10 @@ class Settings(BaseSettings):
     # AI 서버
     # ===========================================
     AI_SERVER_URL: str
-
+    AI_SERVICE_URL: str = Field(
+        default="http://ai:8001",
+        description="내부 AI 서버 URL",
+    )
     # ===========================================
     # 로깅 (ADR-012)
     # ===========================================
