@@ -180,3 +180,29 @@ def get_chat_service(
 
 
 ChatServiceDep = Annotated[ChatService, Depends(get_chat_service)]
+
+
+from app.repositories.message import MessageRepository
+from app.services.message import MessageService
+
+
+def get_message_repo(session: DbSession) -> MessageRepository:
+    return MessageRepository(session)
+
+
+MessageRepoDep = Annotated[MessageRepository, Depends(get_message_repo)]
+
+
+def get_message_service(
+    session: DbSession,
+    message_repo: MessageRepoDep,
+    chat_service: ChatServiceDep,
+) -> MessageService:
+    return MessageService(
+        session=session,
+        message_repo=message_repo,
+        chat_service=chat_service,
+    )
+
+
+MessageServiceDep = Annotated[MessageService, Depends(get_message_service)]
