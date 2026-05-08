@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 
 from app.db.models.user import User
 from app.services.auth.providers import OAuthUserInfo
+from app.core.exceptions import UserAlreadyExistsError
 
 
 def _user_info(suffix: str = "") -> OAuthUserInfo:
@@ -89,3 +90,77 @@ async def test_concurrent_oauth_signup_creates_single_user(
         )
         count = result.scalar_one()
         assert count == 1, f"DB에 사용자가 {count}명 있음. 정확히 1명이어야 함."
+
+async def test_different_oauth_with_same_email_raises_error(
+    auth_service_factory,
+) -> None:
+    """다른 OAuth provider로 같은 이메일을 시도하면
+    UserAlreadyExistsError가 떠야 한다.
+
+    race condition이 아닌 진짜 비즈니스 충돌 시나리오:
+    - Google로 alice@example.com 가입 완료
+    - 누군가 Kakao로 alice@example.com 시도 → 거부
+
+    수정된 _get_or_create_user는 INSERT를 시도하다 IntegrityError를
+    잡고, (provider, subject) 재조회에서 못 찾으면 이 에러를 raise.
+    """
+    # 1. Google로 먼저 가입 완료
+    google_user = OAuthUserInfo(
+        provider="google",
+        subject="google-uid-A",
+        email="alice@example.com",
+        name="Alice",
+    )
+    async with auth_service_factory() as (auth_service, session):
+        await auth_service._get_or_create_user(google_user)
+        await session.commit()
+
+    # 2. 같은 이메일로 Kakao 시도 → 비즈니스 충돌
+    kakao_user = OAuthUserInfo(
+        provider="kakao",
+        subject="kakao-uid-B",
+        email="alice@example.com",  # 같은 이메일
+        name="Alice",
+    )
+    with pytest.raises(UserAlreadyExistsError):
+        async with auth_service_factory() as (auth_service, session):
+            await auth_service._get_or_create_user(kakao_user)
+            await session.commit()
+
+async def test_returning_user_login_does_not_create_duplicate(
+    auth_service_factory,
+    sessionmaker: async_sessionmaker[AsyncSession],
+) -> None:
+    """같은 사용자가 두 번 (순차) 로그인하면 첫 번째에서 생성된
+    사용자가 그대로 반환되어야 한다.
+
+    race가 아닌 정상 흐름(returning user)이 깨지지 않았는지 검증.
+    """
+    user_info = OAuthUserInfo(
+        provider="google",
+        subject="google-uid-returning",
+        email="bob@example.com",
+        name="Bob",
+    )
+
+    # 1차 로그인 — 신규 가입
+    async with auth_service_factory() as (auth_service, session):
+        first = await auth_service._get_or_create_user(user_info)
+        await session.commit()
+        first_id = first.id
+
+    # 2차 로그인 — 기존 사용자 반환 (INSERT 없음)
+    async with auth_service_factory() as (auth_service, session):
+        second = await auth_service._get_or_create_user(user_info)
+        await session.commit()
+        second_id = second.id
+
+    # 같은 user_id여야 한다
+    assert first_id == second_id
+
+    # DB에 사용자가 1명만 있어야 한다
+    async with sessionmaker() as verify_session:
+        result = await verify_session.execute(
+            select(func.count(User.id)).where(User.email == user_info.email)
+        )
+        assert result.scalar_one() == 1

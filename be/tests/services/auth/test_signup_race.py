@@ -19,6 +19,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 from app.db.models.user import User
 from app.services.auth.providers import OAuthUserInfo
 
+from app.core.exceptions import UserAlreadyExistsError
+
+
 
 def _user_info() -> OAuthUserInfo:
     """테스트 픽스처 — 가상의 Google OAuth 사용자."""
@@ -83,3 +86,44 @@ async def test_concurrent_oauth_signup_creates_single_user(
         )
         count = result.scalar_one()
         assert count == 1, f"DB에 사용자가 {count}명. 정확히 1명이어야 함."
+
+# ===========================================================================
+# 비즈니스 로직 회귀 방지 — race 수정이 기존 정책을 깨지 않았는지
+# ===========================================================================
+
+async def test_different_oauth_with_same_email_raises_error(
+    auth_service_factory,
+) -> None:
+    """다른 OAuth provider로 같은 이메일을 시도하면
+    UserAlreadyExistsError가 떠야 한다.
+
+    race condition이 아닌 진짜 비즈니스 충돌 시나리오:
+    - Google로 alice@example.com 가입 완료
+    - 누군가 Kakao로 alice@example.com 시도 → 거부
+
+    수정된 _get_or_create_user는 INSERT를 시도하다 IntegrityError를
+    잡고, (provider, subject) 재조회에서 못 찾으면 이 에러를 raise.
+    """
+    # 1. Google로 먼저 가입 완료
+    google_user = OAuthUserInfo(
+        provider="google",
+        subject="google-uid-A",
+        email="alice@example.com",
+        name="Alice",
+    )
+    async with auth_service_factory() as (auth_service, session):
+        await auth_service._get_or_create_user(google_user)
+        await session.commit()
+
+    # 2. 같은 이메일로 Kakao 시도 → 비즈니스 충돌
+    kakao_user = OAuthUserInfo(
+        provider="kakao",
+        subject="kakao-uid-B",
+        email="alice@example.com",  # 같은 이메일
+        name="Alice",
+    )
+    with pytest.raises(UserAlreadyExistsError):
+        async with auth_service_factory() as (auth_service, session):
+            await auth_service._get_or_create_user(kakao_user)
+            await session.commit()
+
