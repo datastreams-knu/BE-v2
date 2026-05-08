@@ -99,11 +99,10 @@ class UserService:
         )
         # 4. repo.add 호출
         user = await self.user_repo.add(user=user)
-        # 5. session.commit
-        await self.session.commit()
+
         # 6. logger.info로 도메인 이벤트
         logger.info(
-            "user_created_oauth",
+            "user_created_oauth_pending_commit",
             user_id=str(user.id),
             email=email,
             oauth_provider=oauth_provider,
