@@ -9,6 +9,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
 from app.core.exceptions import (
@@ -256,15 +257,54 @@ class AuthService:
             # 이미 다른 provider로 가입된 사용자
             raise UserAlreadyExistsError(user_info.email)
 
-        # 3. 신규 가입
-        nickname = self._derive_nickname(user_info.name)
-        user = await self.user_service.create_user_oauth(
-            email=user_info.email,
-            nickname=nickname,
-            oauth_provider=user_info.provider,
-            oauth_subject=user_info.subject,
-        )
-        return user
+        # 2. 신규 가입 시도
+        try:
+            nickname = self._derive_nickname(user_info.name)
+            user = await self.user_service.create_user_oauth(
+                email=user_info.email,
+                nickname=nickname,
+                oauth_provider=user_info.provider,
+                oauth_subject=user_info.subject,
+            )
+            return user
+
+        except UserAlreadyExistsError:
+            # Type 1 race: 다른 task가 commit 끝낸 후 본 task가 사전 체크에서 발견.
+            # (provider, subject)가 같으면 동일 사용자로 간주.
+            logger.info(
+                "oauth_signup_race_recovered_via_email_check",
+                provider=user_info.provider,
+                subject=user_info.subject,
+            )
+            recovered = await self.user_service.user_repo.get_by_oauth(
+                provider=user_info.provider,
+                subject=user_info.subject,
+            )
+            if recovered is not None:
+                return recovered
+            # (provider, subject)가 다른데 email만 같다면 진짜 충돌
+            raise
+
+        except IntegrityError:
+            # Type 2 race: 두 INSERT가 동시 도달, DB unique 제약이 차단.
+            # 세션을 롤백해야 이후 쿼리 가능.
+            await self.session.rollback()
+            logger.info(
+                "oauth_signup_race_recovered_via_db_constraint",
+                provider=user_info.provider,
+                subject=user_info.subject,
+            )
+
+            # 재조회 — (provider, subject) 매칭이면 정상 복구
+            recovered = await self.user_service.user_repo.get_by_oauth(
+                provider=user_info.provider,
+                subject=user_info.subject,
+            )
+            if recovered is not None:
+                return recovered
+
+            # email 충돌이면 진짜 비즈니스 에러
+            raise UserAlreadyExistsError(user_info.email)
 
     @staticmethod
     def _derive_nickname(name: str) -> str:
