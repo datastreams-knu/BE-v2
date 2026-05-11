@@ -117,7 +117,7 @@ async def stream_message(
 
     async def event_generator():
         async for event in subscriber.subscribe(message_id):
-            yield f"data: {json.dump(event, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
         
     return StreamingResponse(
         event_generator(),

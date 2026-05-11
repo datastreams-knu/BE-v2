@@ -82,27 +82,21 @@ class ChatService:
             limit: 페이지당 항목 수 (최대 100 권장)
             cursor: 이전 페이지의 next_cursor (첫 페이지면 None)
         """
-        # TODO: 본인 구현
-        # 힌트:
-        # 1. cursor가 있으면 _decode_cursor(cursor) → (created_at, id)
-        created_at = None
-        chat_id = None
+        cursor_created_at: datetime | None = None
+        cursor_chat_id: UUID | None = None
         if cursor:
-            (created_at, id) = self._decode_cursor(cursor)
+            cursor_created_at, cursor_chat_id = self._decode_cursor(cursor)
 
-        # 2. repo.list_by_user(user_id, limit, ...) 호출
         chats = await self.chat_repo.list_by_user(
-                                        user_id=user_id, 
-                                        limit=limit,
-                                        cursor_created_at=created_at,
-                                        cursor_id=chat_id
+            user_id=user_id,
+            limit=limit,
+            cursor_created_at=cursor_created_at,
+            cursor_id=cursor_chat_id,
         )
         
-        # 3. has_more 판별, items 추출
         has_more = len(chats) > limit
         items = chats[:limit]
 
-        # 5. next_curosr 계산
         next_cursor: str | None = None
         if has_more and items:
             last = items[-1]
@@ -113,7 +107,7 @@ class ChatService:
             next_cursor=next_cursor,
             has_more=has_more,
         )
-    
+        
     # === 생성 ===
 
     async def create_chat(self, user_id: UUID, name: str) -> Chat:

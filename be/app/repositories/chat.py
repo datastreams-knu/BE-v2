@@ -61,12 +61,11 @@ class ChatRepository:
         cursor가 None이면 첫 페이지.
         반환: limit + 1 개 (호출자가 has_more 판별)
         """
-        # TODO: 본인 구현
-        # 힌트:
-        # 1. select(Chat).where(Chat.user_id == user_id)
-        # 2. cursor가 있으면 .where(tuple_(Chat.created_at, Chat.id) < (...))
-        # 3. .order_by(Chat.created_at.desc(), Chat.id.desc())
-        # 4. .limit(limit + 1)
+        if (cursor_created_at is None) != (cursor_id is None):
+            raise ValueError(
+                "cursor_created_at and cursor_id must be both provided or both None"
+            )
+
         stmt = (
             select(Chat)
             .where(Chat.user_id == user_id)
