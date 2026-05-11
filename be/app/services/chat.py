@@ -112,16 +112,11 @@ class ChatService:
 
     async def create_chat(self, user_id: UUID, name: str) -> Chat:
         """새 Chat 생성."""
-        # TODO: 본인 구현
-        # 힌트:
-        # 1. _validate_name 호출
         self._validate_name(name=name)
-        # 2. Chat(user_id=user_id, name=name.strip()) 생성
         chat = Chat(
             user_id=user_id,
             name=name.strip()
         )
-        # 3. repo.add → commit → log → return
         chat = await self.chat_repo.add(chat=chat)
         await self.session.commit()
         logger.info(
@@ -140,11 +135,6 @@ class ChatService:
         new_name: str,
     ) -> Chat:
         """Chat 이름 변경 + 소유권 검증."""
-        # TODO: 본인 구현
-        # 힌트:
-        # 1. _validate_name
-        # 2. get_chat (소유권 검증 포함)
-        # 3. repo.update_name → commit → log
         self._validate_name(new_name)
         chat = await self.get_chat(user_id=user_id, chat_id=chat_id)
         old_name = chat.name
@@ -162,7 +152,6 @@ class ChatService:
 
     async def delete_chat(self, user_id: UUID, chat_id: UUID) -> None:
         """Chat 삭제 + 소유권 검증."""
-        # TODO: 본인 구현
         chat = await self.get_chat(user_id, chat_id)
         await self.chat_repo.delete(chat)
         await self.session.commit()
@@ -179,11 +168,6 @@ class ChatService:
 
         UserService._validate_nickname과 같은 패턴.
         """
-        # TODO: 본인 구현
-        # 힌트:
-        # - strip 후 빈 문자열이면 reason="empty"
-        # - CHAT_NAME_MAX_LENGTH 초과면 reason="too long"
-        # - InvalidChatNameError raise
         stripped = name.strip()
         reason = None
         if len(stripped) == 0:

@@ -4,13 +4,22 @@
 ADR-005: Refresh Token Rotation 추적용.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import UUID
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models.refresh_token import RefreshToken
+
+
+def _utcnow() -> datetime:
+    """현재 시각을 timezone-aware UTC로 반환.
+
+    Repository 전반에서 revoked_at 등 시각 기록에 사용.
+    datetime.utcnow()는 naive를 반환하므로 사용하지 않는다.
+    """
+    return datetime.now(timezone.utc)
 
 
 class RefreshTokenRepository:
@@ -39,7 +48,7 @@ class RefreshTokenRepository:
 
         replaced_by_id가 주어지면 Rotation 체인 형성.
         """
-        token.revoked_at = datetime.now(tz=None).astimezone()  # UTC
+        token.revoked_at = _utcnow()
         token.replaced_by_id = replaced_by_id
         await self.session.flush()
         return token
@@ -50,9 +59,7 @@ class RefreshTokenRepository:
         탈취 탐지 시 사용. 체인을 따라가며 모두 무효화.
         Returns: revoked된 토큰 개수
         """
-        from datetime import datetime, timezone
-
-        now = datetime.now(timezone.utc)
+        now = _utcnow()
         count = 0
         current: RefreshToken | None = token
 
@@ -73,9 +80,7 @@ class RefreshTokenRepository:
 
     async def revoke_all_by_user(self, user_id: UUID) -> int:
         """사용자의 모든 활성 토큰 무효화. 로그아웃 시 사용."""
-        from datetime import datetime, timezone
-
-        now = datetime.now(timezone.utc)
+        now = _utcnow()
         result = await self.session.execute(
             update(RefreshToken)
             .where(RefreshToken.user_id == user_id)
