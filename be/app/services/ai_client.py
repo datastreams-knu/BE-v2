@@ -46,14 +46,6 @@ class AIClient:
         Raises:
             AIServiceError: 통신 실패, 타임아웃, 응답 형식 오류
         """
-        # TODO: 본인 구현
-        # 힌트:
-        # 1. URL: f"{settings.AI_SERVICE_URL}{self.AI_RESPONSE_PATH}"
-        # 2. self._http.post(url, json={"question": question}, timeout=self.REQUEST_TIMEOUT)
-        # 3. 200이 아니면 AIServiceError raise + logger.error
-        # 4. response.json()으로 파싱
-        # 5. answer/references/images 키 존재 검증 (없으면 AIServiceError)
-        # 6. dict 반환
         url = f"{settings.AI_SERVICE_URL}{self.AI_RESPONSE_PATH}"
 
         try:
@@ -106,18 +98,6 @@ class AIClient:
         Raises:
             AIServiceError: 통신 실패, 타임아웃, 형식 오류
         """
-        # TODO: 본인 구현
-        # 힌트:
-        # 1. URL: f"{settings.AI_SERVICE_URL}{self.AI_RESPONSE_PATH}"
-
-        # 2. async with self._http.stream("POST", url, json=..., timeout=...) as response:
-        #      - 200 아니면 AIServiceError
-        #      - async for line in response.aiter_lines():
-        #         - SSE는 "data: {json}" 형식
-        #         - line.startswith("data: ")인 것만 파싱
-        #         - "data: " 이후를 json.loads
-        #         - yield 파싱된 dict  
-        # 3. try-except로 httpx.TimeoutException, RequestError 처리
         url = f"{settings.AI_SERVICE_URL}{self.AI_RESPONSE_PATH}"
 
         try:
