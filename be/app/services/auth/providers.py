@@ -1,8 +1,5 @@
 # be/app/services/auth/providers.py
 """OAuth Provider 추상화.
-
-ADR-005, ADR-013: Strategy 패턴으로 다중 Provider 확장 대비.
-현재는 Google만 구현. Kakao/Naver 추가 시 같은 인터페이스로.
 """
 
 from typing import Protocol
@@ -20,7 +17,7 @@ logger = get_logger(__name__)
 
 class OAuthUserInfo(BaseModel):
     """
-    OAuth Provider에서 받은 사용자 정보 (정규화).
+    OAuth Provider에서 받은 사용자 정보 정규화.
 
     Provider별로 응답 형식이 다르지만 이 형태로 통일.
     """
@@ -67,7 +64,7 @@ class OAuthProvider(Protocol):
 
         Args:
             code: Provider가 콜백에 보낸 인증 코드
-            code_verifier: PKCE용 (1단계에서 저장해둔 원본)
+            code_verifier: PKCE용
 
         Returns:
             정규화된 사용자 정보
@@ -104,8 +101,8 @@ class GoogleOAuthProvider:
             "state": state,
             "code_challenge": code_challenge,
             "code_challenge_method": "S256",
-            "access_type": "online",  # offline이면 google refresh token까지 — 본 프로젝트엔 불필요
-            "prompt": "select_account",  # 사용자가 매번 계정 선택 가능
+            "access_type": "online", 
+            "prompt": "select_account",
         }
 
         # URL encoding

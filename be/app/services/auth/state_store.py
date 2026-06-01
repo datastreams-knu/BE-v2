@@ -2,9 +2,6 @@
 """OAuth state·code_verifier 임시 저장소.
 
 OAuth 시작 시점과 콜백 시점 사이에 code_verifier를 보관.
-
-현재 구현: in-memory dict (단일 프로세스에서만 동작)
-TODO Phase 4 후속: Redis로 교체 (멀티 인스턴스 대응)
 """
 
 import asyncio
@@ -21,7 +18,7 @@ class OAuthSession:
 class OAuthStateStore:
     """state → OAuthSession 매핑.
 
-    TTL: 10분 (사용자가 OAuth 완료하기에 충분).
+    TTL: 10분
     """
 
     TTL_MINUTES = 10
@@ -64,3 +61,42 @@ class OAuthStateStore:
         ]
         for key in expired_keys:
             self._store.pop(key, None)
+
+
+class RedisOAuthStateStore:
+    """Redis 기반 state store.
+
+    저장 형식:
+    - Key:   oauth:state:{state}
+    - Value: code_verifier (raw string)
+    - TTL:   Redis EXPIRE로 자동 만료 — 직접 cleanup 불필요
+
+    멀티워커 안전성:
+    - GETDEL을 사용해 pop의 GET+DELETE를 원자적으로 처리
+    - 동시 callback이 와도 한 워커만 code_verifier를 받음 (Redis 6.2+)
+    """
+
+    KEY_PREFIX = "oauth:state:"
+    TTL_SECONDS = 10 * 60  # 10분 — 사용자가 Google 로그인 완료에 충분
+
+    def __init__(self, redis: Redis):
+        self._redis = redis
+
+    def _key(self, state: str) -> str:
+        return f"{self.KEY_PREFIX}{state}"
+
+    async def save(self, state: str, code_verifier: str) -> None:
+        await self._redis.set(
+            self._key(state),
+            code_verifier,
+            ex=self.TTL_SECONDS,
+        )
+
+    async def pop(self, state: str) -> str | None:
+        value = await self._redis.getdel(self._key(state))
+        if value is None:
+            return None
+        # redis-py는 decode_responses 설정에 따라 str 또는 bytes 반환
+        if isinstance(value, bytes):
+            return value.decode("utf-8")
+        return value
